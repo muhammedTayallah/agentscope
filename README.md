@@ -2,7 +2,7 @@
 
 A small self-hosted observability and evaluation platform for LLM agents (a mini Langfuse). Agents send traces through the Python SDK; a dashboard shows runs, nested spans, cost, latency and errors, and runs eval datasets to compare agent versions.
 
-**Status:** Phase 4 (metrics + charts) of [PLAN.md](PLAN.md) is done.
+**Status:** Phase 5 (instrumented real agent) of [PLAN.md](PLAN.md) is done.
 
 ## Dashboard
 
@@ -15,7 +15,7 @@ Open http://localhost:5180 and sign in with the server's `ADMIN_TOKEN`.
 
 Filters, the selected span and the metrics range are kept in the URL, so links are shareable.
 
-**Cost:** Anthropic models are priced out of the box. For Gemini or any other model, set prices in USD per 1M tokens, for example `MODEL_PRICES={"gemini-3.8-flash": [0.30, 2.50]}`. Until then those models show as "unpriced" (never as $0).
+**Cost:** Anthropic models are priced out of the box. For Gemini or any other model, set prices in USD per 1M tokens, for example `MODEL_PRICES={"gemini-3.5-flash-lite": [0.30, 2.50]}`. Until then those models show as "unpriced" (never as $0).
 
 ## Run with Docker
 
@@ -78,14 +78,35 @@ with scope.trace("support-run", input=question) as run:
 
 It posts batches to `POST /v1/ingest` (`{"traces": [...], "spans": [...]}`, up to 500 each), which upserts by ID.
 
+## Demo agent
+
+`evals/` contains a real tool-using agent, a Gemini customer-support bot for a fictional shop, traced end to end through the SDK. Every model call and tool call appears as a span with tokens, cost and latency.
+
+1. Put `GEMINI_API_KEY` in `.env`.
+2. Create a project and put its key in `.env` as `AGENTSCOPE_API_KEY` (the key is in the response):
+   ```bash
+   curl -X POST localhost:8000/projects -H "Authorization: Bearer $ADMIN_TOKEN" \
+     -H "Content-Type: application/json" -d '{"name": "Support agent"}'
+   ```
+3. Ask it something:
+   ```bash
+   cd evals
+   uv run python -m agentscope_evals "Where is my order A1002?"
+   uv run python -m agentscope_evals "I paid 79 for headphones. What do I get back if I return them, and how fast?"
+   # Default model: gemini-3.5-flash-lite. Another one: --model gemini-3.6-flash
+   ```
+
+Each run appears under **Runs** (open it for the span tree) and in **Metrics** (cost uses `MODEL_PRICES`).
+
 ## Tests
 
 ```bash
 cd backend && uv run ruff check . && uv run pytest     # integration tests use TEST_DATABASE_URL / TEST_REDIS_URL
 cd sdk && uv run ruff check . && uv run pytest
+cd evals && uv run ruff check . && uv run pytest
 cd frontend && npm test       # Windows: run from E:\..., not e:\... (Vitest path-case quirk)
 ```
 
-CI runs all three suites, plus a `docker compose up` smoke test.
+CI runs all four suites, plus a `docker compose up` smoke test.
 
 Design decisions: [docs/decisions.md](docs/decisions.md).

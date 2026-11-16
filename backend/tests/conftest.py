@@ -26,6 +26,7 @@ def env() -> Settings:
 @pytest.fixture
 def test_settings(env: Settings) -> Settings:
     return Settings(
+        _env_file=None,  # .env values (e.g. MODEL_PRICES) must not leak into test settings
         admin_token=SecretStr(ADMIN_TOKEN),
         redis_url=env.test_redis_url or "redis://127.0.0.1:1/0",
     )

@@ -1,0 +1,34 @@
+[project]
+name = "agentscope-evals"
+version = "0.1.0"
+description = "Demo support agent instrumented with agentscope-sdk, plus eval tooling"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "agentscope-sdk",
+    "google-genai>=3.3.0",
+]
+
+[build-system]
+requires = ["uv_build>=0.12.15,<0.13.0"]
+build-backend = "uv_build"
+
+[tool.uv.sources]
+agentscope-sdk = { path = "../sdk", editable = true }
+
+[dependency-groups]
+dev = [
+    "pytest>=9.2.0",
+    "ruff>=0.17.5",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+filterwarnings = ["ignore::SyntaxWarning"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "ASYNC"]

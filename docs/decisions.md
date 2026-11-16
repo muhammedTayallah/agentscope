@@ -58,3 +58,29 @@
   - Light theme only, like the rest of the app.
 - **Windows quirk:** Vitest fails ("failed to find the current suite") when started from a lowercase `e:\` path, as VS Code sometimes opens the folder. Running from `E:\…` works, and CI on Linux is unaffected.
 - **Phase 3 bug fixed:** the header's project switcher read the project from `useParams`, which a layout route can't see, so it never showed the current project. It now uses `useMatch`, and Runs | Metrics tabs were added.
+
+## 2026-11-16: Phase 5 instrumented demo agent
+
+- **What:** `evals/` is a third uv package (`agentscope-evals`) holding a customer-support agent for a fictional shop. Its tools are deterministic and local (`search_kb`, `get_order`, a safe AST `calculate`), so Phase 6 evals are repeatable and need no network apart from the LLM.
+- **LLM:** Gemini via `google-genai`, default `gemini-3.5-flash-lite` (was `gemini-3.8-flash` until the comparison below) (`--model` / `AGENT_MODEL` to change). It uses a **hand-written function-calling loop** with automatic function calling disabled, so every model call and every tool call is its own span. The model's turn is appended unchanged, because Gemini 3 needs its thought signatures back. Each function response carries the call's `id`.
+- **Trace layout:** a `support-agent` trace (input: question; output: answer; metadata: `agent_version`, `model`), then alternating `gemini` (llm) and tool spans. LLM spans record `input_tokens = prompt_token_count` and `output_tokens = candidates + thoughts`, since Google bills thinking as output.
+- **Errors:** a tool error (unknown order, bad expression, unknown tool or bad arguments) marks its span as an error and is returned to the model as `{"error": …}`, so the agent can recover. Model errors and hitting the step limit (6 calls) mark the trace as failed.
+- **`agent_version`** goes on every trace now, so Phase 6 can compare versions.
+- **Gemini price:** `MODEL_PRICES={"gemini-3.8-flash": [0.75, 3.75]}` in `.env` / `.env.example`, from Google's pricing page. That's the paid Standard tier with thinking included in output, valid **through 2026-12-31**; it rises to $1.50 / $7.50 on 2027-01-01. It's kept in config, not code, so the change is a one-line edit.
+- **Test isolation fix:** backend test settings are built with `_env_file=None`. pydantic-settings deep-merges dictionaries, so `.env`'s `MODEL_PRICES` leaked into the tests even when they passed `{}`.
+- **CLI:** `uv run python -m agentscope_evals "question"` reads only its four keys (`GEMINI_API_KEY`, `GOOGLE_API_KEY`, `AGENTSCOPE_API_KEY`, `AGENTSCOPE_HOST`) from the repo `.env`; shell variables win.
+- **Tests:** 17, using a scripted Gemini client that returns real `google-genai` types and an SDK recorder. They cover the full tool loop, the request contents sent back to the model, span kinds, tokens and nesting, tool-error recovery, the step limit and model failure.
+- **Live verification (2026-11-16):** `gemini-3.8-flash` returned **503 "high demand"** on every attempt, after the SDK's own retries; the failed runs were traced as failed, with 0 tokens. `gemini-3.6-flash` (same price, $0.75 / $3.75 until 2026-12-31) worked, so the live runs used `--model gemini-3.6-flash`; the default stays 3.8. Results:
+  - Refund question: `get_order` and `search_kb` called in parallel, answered correctly.
+  - Unknown order B7777: the tool error was returned to the model, which asked the customer to check the id.
+  - Express shipping: `search_kb` then `calculate` (40 + 12 = 52), 3 model calls.
+  - The dashboard shows each run's llm and tool spans with tokens, inputs and outputs. Metrics showed cost $0.009, matching (3,837 × 0.75 + 1,635 × 3.75) / 1e6, with latency p50 29 s and p95 2 m (individual Gemini calls took 30-56 s at the time).
+- The CLI prints one line on failure (the run is already traced) and uses ASCII in its status line, because the Windows console mangled `·`.
+- **Flash-Lite comparison (2026-11-16):** the same 4 questions on `gemini-3.5-flash-lite` (`$0.30 / $2.50`, no date change; added to `MODEL_PRICES`) were all answered correctly, including the tool-error recovery. Measured from the traces:
+
+  | model | avg run latency | avg tokens in / out | cost per run |
+  |---|---|---|---|
+  | gemini-3.6-flash | 105 s | 959 / 409 | $0.00225 |
+  | gemini-3.5-flash-lite | 9 s | 1,017 / 76 | $0.00050 |
+
+  Flash-Lite thinks far less (fewer output tokens) and made one redundant `search_kb` call, but it was about 11× faster and 4.5× cheaper with no loss of correctness on these questions. This is a 4-question sample, not an eval; Phase 6 is where the versions get compared properly.
