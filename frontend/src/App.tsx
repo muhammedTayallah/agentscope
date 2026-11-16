@@ -2,6 +2,7 @@ import { Navigate, Route, Routes } from "react-router-dom";
 
 import { Layout, ProjectsHome } from "./components/Layout";
 import { LoginPage } from "./pages/LoginPage";
+import { MetricsPage } from "./pages/MetricsPage";
 import { RunDetailPage } from "./pages/RunDetailPage";
 import { RunsPage } from "./pages/RunsPage";
 
@@ -13,6 +14,7 @@ export default function App() {
         <Route index element={<ProjectsHome />} />
         <Route path="p/:projectId/runs" element={<RunsPage />} />
         <Route path="p/:projectId/runs/:traceId" element={<RunDetailPage />} />
+        <Route path="p/:projectId/metrics" element={<MetricsPage />} />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>

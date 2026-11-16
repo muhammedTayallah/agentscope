@@ -1,11 +1,13 @@
-import { Link, Navigate, Outlet, useNavigate, useParams } from "react-router-dom";
+import { Link, NavLink, Navigate, Outlet, useMatch, useNavigate } from "react-router-dom";
 
 import { fetchHealth, getToken, listProjects, setToken } from "../lib/api";
 import { useFetch } from "../lib/useFetch";
 
 /** Header with project switcher and health; requires a saved admin token. */
 export function Layout() {
-  const { projectId } = useParams();
+  // A layout route can't see child params, so match the project id from the URL.
+  const projectId = useMatch("/p/:projectId/*")?.params.projectId;
+  const section = useMatch("/p/:projectId/metrics") ? "metrics" : "runs";
   const navigate = useNavigate();
   const projects = useFetch(() => listProjects(), []);
   const health = useFetch(fetchHealth, []);
@@ -26,7 +28,7 @@ export function Layout() {
               <select
                 aria-label="Project"
                 value={projectId ?? ""}
-                onChange={(e) => navigate(`/p/${e.target.value}/runs`)}
+                onChange={(e) => navigate(`/p/${e.target.value}/${section}`)}
                 className="rounded-lg border border-slate-300 bg-white px-2 py-1 text-slate-900"
               >
                 {projects.data.map((p) => (
@@ -36,6 +38,21 @@ export function Layout() {
                 ))}
               </select>
             </label>
+          )}
+          {projectId && (
+            <nav className="flex gap-1 text-sm" aria-label="Sections">
+              {(["runs", "metrics"] as const).map((s) => (
+                <NavLink
+                  key={s}
+                  to={`/p/${projectId}/${s}`}
+                  className={({ isActive }) =>
+                    `rounded-lg px-3 py-1.5 font-medium capitalize ${isActive ? "bg-indigo-50 text-indigo-700" : "text-slate-600 hover:bg-slate-100"}`
+                  }
+                >
+                  {s}
+                </NavLink>
+              ))}
+            </nav>
           )}
           <div className="ml-auto flex items-center gap-4 text-sm">
             <span className="flex items-center gap-1.5 text-slate-500" title="Backend health">

@@ -73,7 +73,7 @@ export class ApiError extends Error {
   }
 }
 
-async function getJson<T>(path: string, token = getToken()): Promise<T> {
+export async function getJson<T>(path: string, token = getToken()): Promise<T> {
   const res = await fetch(`/api${path}`, {
     headers: token ? { Authorization: `Bearer ${token}` } : {},
   });

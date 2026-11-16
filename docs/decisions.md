@@ -39,3 +39,22 @@
 - **Dev port 5180:** DocuMind and HireFlow both use 5173, and running them side by side made the AgentScope check hit HireFlow's server. Compose, CORS and CI use 5180 too.
 - **Python pinned to 3.12** (`backend/.python-version`). Without a pin, uv had picked its newest managed Python (3.14), unlike CI and Docker.
 - **Verification:** `frontend/e2e/send_trace.py` sends a 6-span trace through the SDK (including an error span). `frontend/e2e/flow.mjs` (Playwright) then checks sign-in, rejection of a wrong token, project switching, search, the exact tree nesting, collapse/expand, the span details (model, tokens, input/output, error), URL state across a reload, and a phone-sized layout.
+
+## 2026-11-16: Phase 4 metrics and charts
+
+- **`GET /projects/{id}/metrics?start&end&bucket`** (admin token). Defaults: the last 7 days, hourly buckets for windows up to 2 days and daily otherwise, at most 1000 buckets. Buckets are cut in UTC (`date_trunc` on `timezone('UTC', …)`, independent of the DB session time zone). Empty buckets come back as zeros, so the time axis is continuous.
+- **What's counted:**
+  - Runs and errors come from traces, bucketed by trace start.
+  - Latency is trace duration, as `percentile_cont` p50/p95/p99 over finished traces only; a running trace counts as a run but not toward latency.
+  - Tokens and cost come from spans, bucketed by span start: LLM spans, plus any span that reports tokens.
+- **Prices** (`core/pricing.py`) are in USD per 1M tokens. Built-in defaults cover Anthropic's current models (list prices). Gemini and anything else go in `MODEL_PRICES` (a JSON env var). **Unpriced models are reported as unpriced, never as $0**, and listed so the gap is visible. Shortcut, noted in code: Haiku 5.5's higher rate for prompts over 100K tokens isn't applied.
+- **"Done when" is checked twice:**
+  - `tests/test_metrics_api.py` seeds a 7-trace dataset whose expected numbers are worked out by hand in its docstring, then asserts them exactly: runs 6, error rate 1/3, p50/p95/p99 300/880/976 ms, per-day p50/p95, cost per model and per day. It also covers configured prices, the hourly grid, defaults, validation and project isolation.
+  - `frontend/e2e/seed_metrics.py` + `e2e/metrics.mjs` load the same dataset into a live server, and Playwright reads the same numbers off the dashboard: tiles, usage table and the time-series table. It also checks that every chart draws marks, that tooltips work, and the range switch.
+- **Chart design**, following the dataviz method:
+  - Forms: stat tiles for the headline numbers; stacked columns for volume (successful runs in series blue, failures in status-critical red); one latency chart with p50/p95 lines on a single axis (no dual axis); labelled horizontal bars for cost by model; a usage table and a collapsible time-series table as the accessible text view.
+  - Colors: the two pairs used (blue/critical red, blue/orange) pass the palette validator on the white card surface.
+  - Marks and text: tooltip and legend text stay in ink colors; bars are at most 24px wide with a 2px surface gap and rounded data ends; dots are filled with a surface ring; lines don't bridge empty buckets.
+  - Light theme only, like the rest of the app.
+- **Windows quirk:** Vitest fails ("failed to find the current suite") when started from a lowercase `e:\` path, as VS Code sometimes opens the folder. Running from `E:\…` works, and CI on Linux is unaffected.
+- **Phase 3 bug fixed:** the header's project switcher read the project from `useParams`, which a layout route can't see, so it never showed the current project. It now uses `useMatch`, and Runs | Metrics tabs were added.

@@ -3,6 +3,8 @@ from functools import lru_cache
 from pydantic import SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+from app.core.pricing import DEFAULT_PRICES
+
 
 class Settings(BaseSettings):
     # Repo-root .env when run from backend/; real env vars win.
@@ -13,6 +15,11 @@ class Settings(BaseSettings):
     # Guards project and API-key management. Empty = management API disabled (503).
     admin_token: SecretStr = SecretStr("")
     cors_origins: list[str] = ["http://localhost:5180"]
+    # Extra/overriding model prices, USD per 1M tokens: {"model": [input, output]}.
+    model_prices: dict[str, tuple[float, float]] = {}
+
+    def all_prices(self) -> dict[str, tuple[float, float]]:
+        return {**DEFAULT_PRICES, **self.model_prices}
 
     # Integration tests run against these when set (they wipe the data).
     test_database_url: str = ""

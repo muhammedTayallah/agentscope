@@ -2,7 +2,7 @@
 
 A small self-hosted observability and evaluation platform for LLM agents (a mini Langfuse). Agents send traces through the Python SDK; a dashboard shows runs, nested spans, cost, latency and errors, and runs eval datasets to compare agent versions.
 
-**Status:** Phase 3 (runs list + span tree UI) of [PLAN.md](PLAN.md) is done.
+**Status:** Phase 4 (metrics + charts) of [PLAN.md](PLAN.md) is done.
 
 ## Dashboard
 
@@ -11,7 +11,11 @@ Open http://localhost:5180 and sign in with the server's `ADMIN_TOKEN`.
 - **Runs:** every trace in the selected project, newest first, with status, duration, span count and tokens. You can search by name, filter by status and page through results.
 - **Run detail:** a collapsible span tree with a timeline bar per span, coloured by kind (LLM, tool, other; errors in red). Click a span to see its model, tokens, timing, error, input, output and metadata.
 
-Filters and the selected span are kept in the URL, so links are shareable.
+- **Metrics:** for the last 24 hours, 7 days or 30 days you get stat tiles (runs, error rate, p50/p95/p99 latency, tokens, cost), runs per hour or day split into succeeded and failed, latency p50/p95 over time, cost by model, and a usage table.
+
+Filters, the selected span and the metrics range are kept in the URL, so links are shareable.
+
+**Cost:** Anthropic models are priced out of the box. For Gemini or any other model, set prices in USD per 1M tokens, for example `MODEL_PRICES={"gemini-3.8-flash": [0.30, 2.50]}`. Until then those models show as "unpriced" (never as $0).
 
 ## Run with Docker
 
@@ -79,7 +83,7 @@ It posts batches to `POST /v1/ingest` (`{"traces": [...], "spans": [...]}`, up t
 ```bash
 cd backend && uv run ruff check . && uv run pytest     # integration tests use TEST_DATABASE_URL / TEST_REDIS_URL
 cd sdk && uv run ruff check . && uv run pytest
-cd frontend && npm test
+cd frontend && npm test       # Windows: run from E:\..., not e:\... (Vitest path-case quirk)
 ```
 
 CI runs all three suites, plus a `docker compose up` smoke test.
