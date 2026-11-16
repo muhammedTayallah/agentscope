@@ -18,6 +18,7 @@ dependencies = [
 
 [package.dev-dependencies]
 dev = [
+    { name = "agentscope-sdk" },
     { name = "httpx" },
     { name = "pytest" },
     { name = "pytest-asyncio" },
@@ -37,7 +38,26 @@ requires-dist = [
 
 [package.metadata.requires-dev]
 dev = [
+    { name = "agentscope-sdk", editable = "../sdk" },
     { name = "httpx", specifier = ">=0.28.1" },
+    { name = "pytest", specifier = ">=9.2.0" },
+    { name = "pytest-asyncio", specifier = ">=1.5.0" },
+    { name = "ruff", specifier = ">=0.17.5" },
+]
+
+[[package]]
+name = "agentscope-sdk"
+version = "0.1.0"
+source = { editable = "../sdk" }
+dependencies = [
+    { name = "httpx" },
+]
+
+[package.metadata]
+requires-dist = [{ name = "httpx", specifier = ">=0.28.1" }]
+
+[package.metadata.requires-dev]
+dev = [
     { name = "pytest", specifier = ">=9.2.0" },
     { name = "pytest-asyncio", specifier = ">=1.5.0" },
     { name = "ruff", specifier = ">=0.17.5" },

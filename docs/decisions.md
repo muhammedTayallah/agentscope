@@ -12,3 +12,18 @@
 - **Frontend:** only a status page (backend, database, Redis) through the Vite `/api` proxy. Project management is done through the API for now; the dashboard arrives in Phase 3.
 - **Tests:** unit tests always run. Integration tests run when `TEST_DATABASE_URL` / `TEST_REDIS_URL` are set (from `.env` locally, from service containers in CI) and migrate the test database from scratch.
 - **Caches on E::** `.cache/env.sh` points uv (Python installs, tools), npm and temp files at E:. The uv package cache is shared with the other portfolio projects at `E:\ai-agent-portfolio\.uv-cache`.
+
+## 2026-11-16: Phase 2 ingestion API and SDK
+
+- **Data model:** `traces` (one agent run) and `spans` (steps, with `parent_id` for nesting and `kind` = span / llm / tool). LLM spans carry `model`, `input_tokens` and `output_tokens`, so Phase 4 can compute cost. `input`, `output` and `metadata` are JSONB. `spans.parent_id` is **not** a foreign key: children finish, and so arrive, before their parents.
+- **IDs come from the SDK** (UUIDv4), so `POST /v1/ingest` is an **upsert**. Retries are harmless, and a span can arrive before its trace. Such a trace gets a `(pending)` placeholder row that the real trace data later fills in. Duplicate IDs within one batch are de-duplicated (last one wins), since Postgres can't upsert a row twice in one statement.
+- **Cross-project safety:** clients choose IDs, so a batch that references a trace or span ID owned by another project is rejected with **409**. The upserts' `WHERE project_id = excluded.project_id` also guarantees another project's rows are never overwritten.
+- **Limits:** 500 traces and 500 spans per batch, timezone-aware timestamps required, errors capped at 10k characters. The SDK caps each input, output or metadata value at 50k characters of JSON.
+- **Writes happen in the request** (a few multi-row upserts). Moving ingestion onto the ARQ queue is a Phase 7 load-test decision, made only if measurements call for it.
+- **SDK (`agentscope_sdk`, distribution `agentscope-sdk`):**
+  - API: `trace()` / `span()` context managers and an `@observe` decorator (sync and async). Nesting comes from `contextvars`. Errors are recorded and re-raised. Anything unserialisable becomes `repr()`.
+  - Delivery: a bounded queue (10k) and a daemon thread that sends batches every second or every 100 events. 5xx, 429 and network errors are retried 3 times with backoff, then dropped with a warning. Other 4xx (bad key, invalid data) are dropped at once. Nothing raises into user code.
+  - Exit and flush: `flush(timeout)` waits for delivery and warns if events are still unsent. At exit the SDK flushes for at most 2 s.
+  - Import name `agentscope_sdk`, because `agentscope` is an existing, unrelated PyPI package.
+- **Unreachable server, measured on Windows:** the demo script runs normally and exits 0. Exit is delayed by about 7 s (its own `flush(5)` plus the 2 s exit flush), because refused connections take about 2 s each on Windows. Both flushes log "events still unsent".
+- **Phase 2 "done when" is tested automatically:** `tests/test_sdk_end_to_end.py` runs the real SDK against the real app (Starlette `TestClient` as the SDK's HTTP client) and the real database, then checks the stored tree, timestamps, tokens and tool input/output. The backend uses the SDK as an editable dev dependency.

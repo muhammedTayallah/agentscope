@@ -2,7 +2,7 @@
 
 A small self-hosted observability and evaluation platform for LLM agents (a mini Langfuse). Agents send traces through the Python SDK; a dashboard shows runs, nested spans, cost, latency and errors, and runs eval datasets to compare agent versions.
 
-**Status:** Phase 1 (scaffold, projects and API keys) of [PLAN.md](PLAN.md) is done.
+**Status:** Phase 2 (ingestion API + SDK) of [PLAN.md](PLAN.md) is done.
 
 ## Run with Docker
 
@@ -48,13 +48,31 @@ SDK calls use a project key:
 curl localhost:8000/v1/project -H "Authorization: Bearer ask_..."   # 200 with the project, 401 if invalid or revoked
 ```
 
+## Sending traces
+
+Use the Python SDK in [`sdk/`](sdk/README.md) (`agentscope-sdk`):
+
+```python
+from agentscope_sdk import AgentScope
+
+scope = AgentScope()   # AGENTSCOPE_API_KEY, AGENTSCOPE_HOST
+
+with scope.trace("support-run", input=question) as run:
+    with scope.span("llm-call", kind="llm", model="gemini-3.8-flash") as llm:
+        llm.update(output=reply, input_tokens=120, output_tokens=12)
+    run.update(output=reply)
+```
+
+It posts batches to `POST /v1/ingest` (`{"traces": [...], "spans": [...]}`, up to 500 each), which upserts by ID.
+
 ## Tests
 
 ```bash
 cd backend && uv run ruff check . && uv run pytest     # integration tests use TEST_DATABASE_URL / TEST_REDIS_URL
+cd sdk && uv run ruff check . && uv run pytest
 cd frontend && npm test
 ```
 
-CI runs both suites, plus a `docker compose up` smoke test.
+CI runs all three suites, plus a `docker compose up` smoke test.
 
 Design decisions: [docs/decisions.md](docs/decisions.md).
