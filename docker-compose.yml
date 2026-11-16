@@ -54,7 +54,7 @@ services:
     build: ./frontend
     environment:
       VITE_API_PROXY_TARGET: http://backend:8000
-    ports: ["5173:5173"]
+    ports: ["5180:5180"]
     depends_on: [backend]
 
 volumes:

@@ -27,3 +27,15 @@
   - Import name `agentscope_sdk`, because `agentscope` is an existing, unrelated PyPI package.
 - **Unreachable server, measured on Windows:** the demo script runs normally and exits 0. Exit is delayed by about 7 s (its own `flush(5)` plus the 2 s exit flush), because refused connections take about 2 s each on Windows. Both flushes log "events still unsent".
 - **Phase 2 "done when" is tested automatically:** `tests/test_sdk_end_to_end.py` runs the real SDK against the real app (Starlette `TestClient` as the SDK's HTTP client) and the real database, then checks the stored tree, timestamps, tokens and tool input/output. The backend uses the SDK as an editable dev dependency.
+
+## 2026-11-16: Phase 3 runs list and span tree UI
+
+- **Read API** (admin token, like management): `GET /projects/{id}/traces` takes `q` (case-insensitive name substring with LIKE wildcards escaped), `status`, `limit` (≤ 200) and `offset`, and returns `{items, total}`. Each run includes its span count and token totals. `GET /projects/{id}/traces/{trace_id}` returns the trace with all spans, ordered by start time. Another project's run gets 404.
+- **Shortcuts, noted in code:** offset paging, and per-project span aggregation on every list request. Both are fine at demo scale; the Phase 7 load test decides whether to move to keyset paging or a per-page/stored aggregate.
+- **Dashboard auth:** sign in with the server's `ADMIN_TOKEN`, checked against `GET /projects` and kept in `localStorage`. A 401 on a saved token signs out. This is single-admin by design until accounts are needed (Phase 8).
+- **Tree built on the client** (`lib/tree.ts`, unit tested). Spans whose parent is missing become roots, so nothing is hidden. Self-parents and cycles can't hang the page. Siblings are ordered by start time. Each row has a timeline bar placed relative to the run, coloured by kind (LLM violet, tool amber, error red).
+- **URL state:** filters, page and the selected span (`?span=`) live in the URL, so reloads and shared links open the same view.
+- **No data-fetching library:** a 20-line `useFetch` hook covers this phase. React Router is the only new frontend dependency.
+- **Dev port 5180:** DocuMind and HireFlow both use 5173, and running them side by side made the AgentScope check hit HireFlow's server. Compose, CORS and CI use 5180 too.
+- **Python pinned to 3.12** (`backend/.python-version`). Without a pin, uv had picked its newest managed Python (3.14), unlike CI and Docker.
+- **Verification:** `frontend/e2e/send_trace.py` sends a 6-span trace through the SDK (including an error span). `frontend/e2e/flow.mjs` (Playwright) then checks sign-in, rejection of a wrong token, project switching, search, the exact tree nesting, collapse/expand, the span details (model, tokens, input/output, error), URL state across a reload, and a phone-sized layout.

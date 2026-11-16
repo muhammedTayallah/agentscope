@@ -82,7 +82,7 @@ jobs:
       - run: docker compose up -d --build --wait
       - name: Smoke test
         run: |
-          curl -fsS http://localhost:5173/api/health | grep -q '"status":"healthy"'
+          curl -fsS http://localhost:5180/api/health | grep -q '"status":"healthy"'
           KEY=$(curl -fsS -X POST localhost:8000/projects \
             -H "Authorization: Bearer $ADMIN_TOKEN" -H 'Content-Type: application/json' \
             -d '{"name":"ci"}' | jq -r .api_key.key)

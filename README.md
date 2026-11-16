@@ -2,7 +2,16 @@
 
 A small self-hosted observability and evaluation platform for LLM agents (a mini Langfuse). Agents send traces through the Python SDK; a dashboard shows runs, nested spans, cost, latency and errors, and runs eval datasets to compare agent versions.
 
-**Status:** Phase 2 (ingestion API + SDK) of [PLAN.md](PLAN.md) is done.
+**Status:** Phase 3 (runs list + span tree UI) of [PLAN.md](PLAN.md) is done.
+
+## Dashboard
+
+Open http://localhost:5180 and sign in with the server's `ADMIN_TOKEN`.
+
+- **Runs:** every trace in the selected project, newest first, with status, duration, span count and tokens. You can search by name, filter by status and page through results.
+- **Run detail:** a collapsible span tree with a timeline bar per span, coloured by kind (LLM, tool, other; errors in red). Click a span to see its model, tokens, timing, error, input, output and metadata.
+
+Filters and the selected span are kept in the URL, so links are shareable.
 
 ## Run with Docker
 
@@ -11,7 +20,7 @@ cp .env.example .env      # set POSTGRES_PASSWORD and ADMIN_TOKEN
 docker compose up --build
 ```
 
-Services: frontend http://localhost:5173 · API http://localhost:8000 (docs at `/docs`) · Postgres 5432 · Redis 6379 · ARQ worker.
+Services: frontend http://localhost:5180 · API http://localhost:8000 (docs at `/docs`) · Postgres 5432 · Redis 6379 · ARQ worker.
 
 ## Run locally without Docker (Windows + WSL)
 

@@ -12,7 +12,7 @@ class Settings(BaseSettings):
     redis_url: str = "redis://localhost:6379/0"
     # Guards project and API-key management. Empty = management API disabled (503).
     admin_token: SecretStr = SecretStr("")
-    cors_origins: list[str] = ["http://localhost:5173"]
+    cors_origins: list[str] = ["http://localhost:5180"]
 
     # Integration tests run against these when set (they wipe the data).
     test_database_url: str = ""

@@ -1,6 +1,6 @@
 import { afterEach, expect, it, vi } from "vitest";
 
-import { fetchHealth } from "./health";
+import { fetchHealth } from "./api";
 
 afterEach(() => vi.unstubAllGlobals());
 
