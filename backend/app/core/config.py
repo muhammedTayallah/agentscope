@@ -1,0 +1,24 @@
+from functools import lru_cache
+
+from pydantic import SecretStr
+from pydantic_settings import BaseSettings, SettingsConfigDict
+
+
+class Settings(BaseSettings):
+    # Repo-root .env when run from backend/; real env vars win.
+    model_config = SettingsConfigDict(env_file=("../.env", ".env"), extra="ignore")
+
+    database_url: str = "postgresql+asyncpg://agentscope:agentscope@localhost:5432/agentscope"
+    redis_url: str = "redis://localhost:6379/0"
+    # Guards project and API-key management. Empty = management API disabled (503).
+    admin_token: SecretStr = SecretStr("")
+    cors_origins: list[str] = ["http://localhost:5173"]
+
+    # Integration tests run against these when set (they wipe the data).
+    test_database_url: str = ""
+    test_redis_url: str = ""
+
+
+@lru_cache
+def get_settings() -> Settings:
+    return Settings()
