@@ -13,11 +13,13 @@ from agentscope_sdk import AgentScope
 
 scope = AgentScope()
 
-@scope.observe(kind="tool")          # span named after the function; captures args and result
+
+@scope.observe(kind="tool")  # span named after the function; captures args and result
 def search(query: str) -> list[str]: ...
 
-with scope.trace("support-run", input={"question": q}) as run:      # one agent run
-    with scope.span("agent"):                                       # nested spans
+
+with scope.trace("support-run", input={"question": q}) as run:  # one agent run
+    with scope.span("agent"):  # nested spans
         docs = search(q)
         with scope.span("llm-call", kind="llm", model="gemini-3.8-flash") as llm:
             reply = call_model(docs)
