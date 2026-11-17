@@ -2,7 +2,7 @@
 
 A small self-hosted observability and evaluation platform for LLM agents (a mini Langfuse). Agents send traces through the Python SDK; a dashboard shows runs, nested spans, cost, latency and errors, and runs eval datasets to compare agent versions.
 
-**Status:** Phase 6 (eval system) of [PLAN.md](PLAN.md) is done.
+**Status:** Phases 1–6 of [PLAN.md](PLAN.md) are done. Phase 7 (load test) has its fixes in but awaits its final run; Phase 8 (deploy) is ready to push. See [docs/deploy.md](docs/deploy.md).
 
 ## Dashboard
 
@@ -25,6 +25,10 @@ docker compose up --build
 ```
 
 Services: frontend http://localhost:5180 · API http://localhost:8000 (docs at `/docs`) · Postgres 5432 · Redis 6379 · ARQ worker.
+
+## Deploy
+
+One production image (`/Dockerfile`) serves the UI at `/` and the API at `/api`, and can run the ARQ worker in-process. `render.yaml` deploys it to Render's free tier, with Postgres and Key Value (Redis), in a few clicks. Step by step: [docs/deploy.md](docs/deploy.md).
 
 ## Run locally without Docker (Windows + WSL)
 

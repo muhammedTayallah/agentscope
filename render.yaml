@@ -1,0 +1,50 @@
+# Render Blueprint: Render dashboard -> New -> Blueprint -> pick this repo.
+# One Docker web service (API + UI + ARQ worker in-process), Postgres 16 and Key Value (Redis).
+# Secrets marked `sync: false` are asked for once, when the Blueprint is first created.
+# Free tier: the service sleeps after 15 idle minutes (~1 minute to wake), and free Postgres
+# expires 30 days after creation. See docs/deploy.md.
+
+databases:
+  - name: agentscope-db
+    plan: free
+    postgresMajorVersion: "16"
+    databaseName: agentscope
+    user: agentscope
+
+services:
+  - type: keyvalue
+    name: agentscope-redis
+    plan: free
+    ipAllowList: [] # private: only services in this account can connect
+    maxmemoryPolicy: noeviction # it's a job queue; never drop queued jobs
+
+  - type: web
+    runtime: docker
+    name: agentscope
+    plan: free
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    healthCheckPath: /api/health
+    autoDeployTrigger: checksPass # deploy only after CI passes on main
+    envVars:
+      - key: DATABASE_URL # postgresql://... is converted to postgresql+asyncpg:// by the app
+        fromDatabase:
+          name: agentscope-db
+          property: connectionString
+      - key: REDIS_URL
+        fromService:
+          type: keyvalue
+          name: agentscope-redis
+          property: connectionString
+      - key: ADMIN_TOKEN # dashboard sign-in and project management; read it under Environment
+        generateValue: true
+      - key: RUN_WORKER # free tier has no background workers: run ARQ inside the web service
+        value: "true"
+      - key: JUDGE_PROVIDER
+        value: gemini
+      - key: JUDGE_MODEL
+        value: gemini-3.5-flash-lite
+      - key: GEMINI_API_KEY # for the LLM-as-judge in eval runs
+        sync: false
+      - key: MODEL_PRICES # USD per 1M tokens; Gemini list prices through 2026-12-31
+        value: '{"gemini-3.8-flash": [0.75, 3.75], "gemini-3.6-flash": [0.75, 3.75], "gemini-3.5-flash-lite": [0.30, 2.50]}'

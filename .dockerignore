@@ -1,0 +1,15 @@
+# Keep secrets, caches and local environments out of the build context and images.
+.env
+.env.*
+!.env.example
+.git
+.cache
+**/.venv
+**/__pycache__
+**/.pytest_cache
+**/.ruff_cache
+**/node_modules
+frontend/dist
+frontend/e2e
+docs
+evals

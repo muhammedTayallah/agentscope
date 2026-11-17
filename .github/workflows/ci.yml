@@ -108,3 +108,38 @@ jobs:
           docker compose ps worker --status running | grep -q worker
       - if: failure()
         run: docker compose logs
+
+  # Phase 8: the production image (UI + API under /api + in-process worker) builds and works.
+  image:
+    runs-on: ubuntu-latest
+    env:
+      ADMIN_TOKEN: ci-admin-token-0123456789
+    steps:
+      - uses: actions/checkout@v4
+      - run: docker build -t agentscope:ci .
+      - name: Start Postgres, Redis and the image
+        run: |
+          docker network create net
+          docker run -d --name db --network net -e POSTGRES_USER=agentscope \
+            -e POSTGRES_PASSWORD=agentscope -e POSTGRES_DB=agentscope postgres:16
+          docker run -d --name redis --network net redis:7-alpine
+          until docker exec db pg_isready -U agentscope; do sleep 1; done
+          docker run -d --name app --network net -p 10000:10000 \
+            -e DATABASE_URL=postgresql://agentscope:agentscope@db:5432/agentscope \
+            -e REDIS_URL=redis://redis:6379/0 -e ADMIN_TOKEN -e RUN_WORKER=true agentscope:ci
+          for i in $(seq 1 60); do curl -fsS localhost:10000/api/health && break; sleep 2; done
+      - name: Smoke test
+        run: |
+          curl -fsS localhost:10000/api/health | grep -q '"status":"healthy"'
+          curl -fsS localhost:10000/ | grep -q '<div id="root">'
+          curl -fsS localhost:10000/p/x/runs | grep -q '<div id="root">'   # SPA fallback
+          KEY=$(curl -fsS -X POST localhost:10000/api/projects \
+            -H "Authorization: Bearer $ADMIN_TOKEN" -H 'Content-Type: application/json' \
+            -d '{"name":"ci"}' | jq -r .api_key.key)
+          TID=$(cat /proc/sys/kernel/random/uuid); NOW=$(date -u +%FT%TZ)
+          curl -fsS -X POST localhost:10000/api/v1/ingest -H "Authorization: Bearer $KEY" \
+            -H 'Content-Type: application/json' \
+            -d "{\"traces\":[{\"id\":\"$TID\",\"name\":\"ci\",\"start_time\":\"$NOW\"}]}"
+          docker logs app 2>&1 | grep -q "ARQ worker started in-process"
+      - if: failure()
+        run: docker logs app
