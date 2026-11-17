@@ -1,0 +1,24 @@
+{
+  "requests": 360,
+  "ok": 360,
+  "errors": {},
+  "elapsed_s": 14.06,
+  "achieved_rps": 25.6,
+  "spans_per_s": 230.5,
+  "latency_ms": {
+    "p50": 1294.3,
+    "p95": 2176.8,
+    "p99": 2978.3,
+    "max": 5381.4,
+    "mean": 1300.8
+  },
+  "label": "probe-prof",
+  "date": "2026-11-17T07:42:22+00:00",
+  "target": {
+    "rps": 30.0,
+    "p95_ms": 200.0,
+    "errors": 0
+  },
+  "passed": false,
+  "batch": "1 trace + 9 spans"
+}

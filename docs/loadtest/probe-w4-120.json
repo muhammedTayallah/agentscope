@@ -1,0 +1,24 @@
+{
+  "requests": 1800,
+  "ok": 1800,
+  "errors": {},
+  "elapsed_s": 38.37,
+  "achieved_rps": 46.9,
+  "spans_per_s": 422.2,
+  "latency_ms": {
+    "p50": 10461.4,
+    "p95": 26687.0,
+    "p99": 31933.8,
+    "max": 35769.8,
+    "mean": 11556.2
+  },
+  "label": "probe-w4-120",
+  "date": "2026-11-17T07:45:36+00:00",
+  "target": {
+    "rps": 120.0,
+    "p95_ms": 200.0,
+    "errors": 0
+  },
+  "passed": false,
+  "batch": "1 trace + 9 spans"
+}

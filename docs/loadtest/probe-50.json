@@ -1,0 +1,24 @@
+{
+  "requests": 750,
+  "ok": 750,
+  "errors": {},
+  "elapsed_s": 38.15,
+  "achieved_rps": 19.7,
+  "spans_per_s": 176.9,
+  "latency_ms": {
+    "p50": 15619.3,
+    "p95": 24071.1,
+    "p99": 27616.4,
+    "max": 30668.7,
+    "mean": 13443.5
+  },
+  "label": "probe-50",
+  "date": "2026-11-17T07:39:01+00:00",
+  "target": {
+    "rps": 50.0,
+    "p95_ms": 200.0,
+    "errors": 0
+  },
+  "passed": false,
+  "batch": "1 trace + 9 spans"
+}

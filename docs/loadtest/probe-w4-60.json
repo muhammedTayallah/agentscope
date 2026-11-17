@@ -1,0 +1,27 @@
+{
+  "requests": 900,
+  "ok": 886,
+  "errors": {
+    "ReadError": 1,
+    "ReadTimeout": 13
+  },
+  "elapsed_s": 55.4,
+  "achieved_rps": 16.0,
+  "spans_per_s": 143.9,
+  "latency_ms": {
+    "p50": 7154.0,
+    "p95": 18717.8,
+    "p99": 20738.3,
+    "max": 22784.0,
+    "mean": 8214.6
+  },
+  "label": "probe-w4-60",
+  "date": "2026-11-17T07:44:56+00:00",
+  "target": {
+    "rps": 60.0,
+    "p95_ms": 200.0,
+    "errors": 0
+  },
+  "passed": false,
+  "batch": "1 trace + 9 spans"
+}

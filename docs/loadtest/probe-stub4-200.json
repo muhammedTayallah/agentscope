@@ -1,0 +1,26 @@
+{
+  "requests": 2000,
+  "ok": 1999,
+  "errors": {
+    "ReadError": 1
+  },
+  "elapsed_s": 20.03,
+  "achieved_rps": 99.8,
+  "spans_per_s": 898.3,
+  "latency_ms": {
+    "p50": 8882.3,
+    "p95": 14336.0,
+    "p99": 17201.8,
+    "max": 19132.3,
+    "mean": 9033.7
+  },
+  "label": "probe-stub4-200",
+  "date": "2026-11-17T07:47:25+00:00",
+  "target": {
+    "rps": 200.0,
+    "p95_ms": 200.0,
+    "errors": 0
+  },
+  "passed": false,
+  "batch": "1 trace + 9 spans"
+}

@@ -1,0 +1,25 @@
+{
+  "requests": 4000,
+  "ok": 4000,
+  "errors": {},
+  "elapsed_s": 16.1,
+  "achieved_rps": 248.4,
+  "spans_per_s": 2235.7,
+  "latency_ms": {
+    "p50": 5778.0,
+    "p95": 8553.3,
+    "p99": 10465.9,
+    "max": 13565.1,
+    "mean": 5286.8
+  },
+  "label": "wsl-stub-400",
+  "date": "2026-11-17T08:14:37+00:00",
+  "target": {
+    "rps": 400.0,
+    "p95_ms": 200.0,
+    "errors": 0
+  },
+  "passed": false,
+  "batch": "1 trace + 9 spans",
+  "generator_processes": 4
+}

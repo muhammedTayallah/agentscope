@@ -1,0 +1,24 @@
+{
+  "requests": 3000,
+  "ok": 3000,
+  "errors": {},
+  "elapsed_s": 50.28,
+  "achieved_rps": 59.7,
+  "spans_per_s": 536.9,
+  "latency_ms": {
+    "p50": 26392.2,
+    "p95": 37498.5,
+    "p99": 41564.7,
+    "max": 46657.4,
+    "mean": 25555.4
+  },
+  "label": "wsl-probe-200",
+  "date": "2026-11-17T08:11:52+00:00",
+  "target": {
+    "rps": 200.0,
+    "p95_ms": 200.0,
+    "errors": 0
+  },
+  "passed": false,
+  "batch": "1 trace + 9 spans"
+}

@@ -12,7 +12,7 @@ from datetime import datetime
 from typing import Any, Literal
 
 from pydantic import AwareDatetime, BaseModel, Field
-from sqlalchemy import select
+from sqlalchemy import text
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -61,40 +61,71 @@ def _dedupe[T: _Item](items: Iterable[T]) -> list[T]:
     return list({i.id: i for i in items}.values())
 
 
-def _row(item: _Item, project_id: uuid.UUID, exclude: set[str] = frozenset()) -> dict:
-    data = item.model_dump(exclude={"metadata", *exclude})
-    return {**data, "meta": item.metadata, "project_id": project_id}
+def _row(item: _Item, project_id: uuid.UUID) -> dict:
+    # Core-table keys: the JSON column is named "metadata" (the ORM attribute is `meta`).
+    return item.model_dump() | {"project_id": project_id}
 
 
-async def _owned_elsewhere(
-    session: AsyncSession, model: type[Trace] | type[Span], ids: set[uuid.UUID], project_id
-) -> bool:
-    if not ids:
-        return False
-    stmt = select(model.id).where(model.id.in_(ids), model.project_id != project_id).limit(1)
-    return (await session.execute(stmt)).first() is not None
+# Built once so SQLAlchemy compiles them once; rows go in as executemany parameters,
+# which it batches into one multi-row INSERT. (Putting rows into .values([...]) made
+# every request compile a fresh ~150-parameter statement: the main CPU cost under load.)
+_TRACES = Trace.__table__
+_SPANS = Span.__table__
+_trace_insert = insert(_TRACES)
+UPSERT_TRACES = _trace_insert.on_conflict_do_update(
+    index_elements=[_TRACES.c.id],
+    set_={
+        c: _trace_insert.excluded[c]
+        for c in (
+            "name",
+            "start_time",
+            "end_time",
+            "status",
+            "error",
+            "input",
+            "output",
+            "metadata",
+        )
+    },
+    where=_TRACES.c.project_id == _trace_insert.excluded.project_id,
+)
+INSERT_PLACEHOLDER_TRACES = insert(_TRACES).on_conflict_do_nothing()
+_span_insert = insert(_SPANS)
+UPSERT_SPANS = _span_insert.on_conflict_do_update(
+    index_elements=[_SPANS.c.id],
+    set_={
+        c.name: _span_insert.excluded[c.name]
+        for c in _SPANS.c
+        if c.name not in ("id", "project_id")
+    },
+    where=_SPANS.c.project_id == _span_insert.excluded.project_id,
+)
+# One round trip for both ownership checks.
+OWNED_ELSEWHERE = text(
+    "SELECT EXISTS (SELECT 1 FROM traces WHERE id = ANY(:trace_ids) AND project_id <> :project_id)"
+    " OR EXISTS (SELECT 1 FROM spans WHERE id = ANY(:span_ids) AND project_id <> :project_id)"
+)
 
 
 async def ingest(session: AsyncSession, project_id: uuid.UUID, batch: IngestBatch) -> None:
+    # Telemetry trade-off: do not wait for the WAL flush. A Postgres crash can lose the last
+    # moments of acknowledged ingests (never corrupt anything); the commit stops costing a
+    # disk flush (~200 ms on WSL). Only this transaction; other writes stay fully durable.
+    await session.execute(text("SET LOCAL synchronous_commit = off"))
     traces, spans = _dedupe(batch.traces), _dedupe(batch.spans)
     trace_ids = {t.id for t in traces} | {s.trace_id for s in spans}
 
     # Clients choose ids, so refuse ids another project already uses.
-    if await _owned_elsewhere(session, Trace, trace_ids, project_id) or await _owned_elsewhere(
-        session, Span, {s.id for s in spans}, project_id
-    ):
+    params = {
+        "trace_ids": list(trace_ids),
+        "span_ids": [s.id for s in spans],
+        "project_id": project_id,
+    }
+    if (await session.execute(OWNED_ELSEWHERE, params)).scalar_one():
         raise ForeignIdError
 
     if traces:
-        stmt = insert(Trace).values([_row(t, project_id) for t in traces])
-        cols = ["name", "start_time", "end_time", "status", "error", "input", "output", "metadata"]
-        await session.execute(
-            stmt.on_conflict_do_update(
-                index_elements=[Trace.id],
-                set_={c: stmt.excluded[c] for c in cols},
-                where=Trace.project_id == stmt.excluded.project_id,
-            )
-        )
+        await session.execute(UPSERT_TRACES, [_row(t, project_id) for t in traces])
 
     # Placeholder rows for traces that only their spans have mentioned so far.
     first_start: dict[uuid.UUID, datetime] = {}
@@ -108,17 +139,9 @@ async def ingest(session: AsyncSession, project_id: uuid.UUID, batch: IngestBatc
         if tid not in sent
     ]
     if placeholders:
-        await session.execute(insert(Trace).values(placeholders).on_conflict_do_nothing())
+        await session.execute(INSERT_PLACEHOLDER_TRACES, placeholders)
 
     if spans:
-        stmt = insert(Span).values([_row(s, project_id) for s in spans])
-        cols = [c.name for c in Span.__table__.columns if c.name not in ("id", "project_id")]
-        await session.execute(
-            stmt.on_conflict_do_update(
-                index_elements=[Span.id],
-                set_={c: stmt.excluded[c] for c in cols},
-                where=Span.project_id == stmt.excluded.project_id,
-            )
-        )
+        await session.execute(UPSERT_SPANS, [_row(s, project_id) for s in spans])
 
     await session.commit()
