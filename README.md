@@ -2,7 +2,7 @@
 
 A small self-hosted observability and evaluation platform for LLM agents (a mini Langfuse). Agents send traces through the Python SDK; a dashboard shows runs, nested spans, cost, latency and errors, and runs eval datasets to compare agent versions.
 
-**Status:** Phase 5 (instrumented real agent) of [PLAN.md](PLAN.md) is done.
+**Status:** Phase 6 (eval system) of [PLAN.md](PLAN.md) is done.
 
 ## Dashboard
 
@@ -97,6 +97,26 @@ It posts batches to `POST /v1/ingest` (`{"traces": [...], "spans": [...]}`, up t
    ```
 
 Each run appears under **Runs** (open it for the span tree) and in **Metrics** (cost uses `MODEL_PRICES`).
+
+## Evals
+
+Score agent versions on a dataset and compare them. The worker must be running (`uv run arq app.workers.main.WorkerSettings` in `backend/`; it's included in Docker Compose).
+
+```bash
+cd evals
+uv run python -m agentscope_evals.experiment --version v1
+uv run python -m agentscope_evals.experiment --version v2-concise
+```
+
+Each command syncs `datasets/support.json` (10 support questions with expected answers, phrases and tools), runs the agent on every item (each answer is a normal trace), uploads the answers and waits while the **worker** scores them:
+
+- `contains`: the expected phrases are present.
+- `tools`: the expected tools were called (from the trace).
+- `judge`: an LLM grades the answer against the reference answer (`JUDGE_PROVIDER` / `JUDGE_MODEL`; Gemini by default).
+
+In the dashboard, open **Evals**: each run shows its score, pass rate and per-scorer averages. Open a run to see every item's answer, scores and the judge's reasons. Tick two runs of the same dataset and press **Compare** for side-by-side scores and the items that changed most.
+
+Free-tier Gemini keys allow 15 requests per minute per model. The agent and the judge wait and retry automatically, so a 10-item run takes about 2 minutes.
 
 ## Tests
 

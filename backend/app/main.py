@@ -1,6 +1,8 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from app.api.evals import admin_router as evals_admin_router
+from app.api.evals import sdk_router as evals_sdk_router
 from app.api.health import router as health_router
 from app.api.ingest import router as ingest_router
 from app.api.metrics import router as metrics_router
@@ -24,6 +26,8 @@ def create_app() -> FastAPI:
     app.include_router(ingest_router)
     app.include_router(traces_router)
     app.include_router(metrics_router)
+    app.include_router(evals_sdk_router)
+    app.include_router(evals_admin_router)
     return app
 
 

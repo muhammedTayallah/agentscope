@@ -68,7 +68,10 @@ async def session_factory(
 ) -> AsyncIterator[async_sessionmaker[AsyncSession]]:
     engine = create_async_engine(migrated_database)
     async with engine.begin() as conn:
-        await conn.execute(text("TRUNCATE projects, api_keys, traces, spans CASCADE"))
+        tables = (
+            "projects, api_keys, traces, spans, datasets, dataset_items, eval_runs, eval_results"
+        )
+        await conn.execute(text(f"TRUNCATE {tables} CASCADE"))
     yield async_sessionmaker(engine, expire_on_commit=False)
     await engine.dispose()
 

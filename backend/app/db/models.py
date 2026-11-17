@@ -2,7 +2,7 @@ import uuid
 from datetime import datetime
 from typing import Any
 
-from sqlalchemy import DateTime, ForeignKey, Index, String, Text, func
+from sqlalchemy import DateTime, ForeignKey, Index, String, Text, UniqueConstraint, func
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -79,3 +79,61 @@ class Span(Base):
     model: Mapped[str | None] = mapped_column(String(100))
     input_tokens: Mapped[int | None]
     output_tokens: Mapped[int | None]
+
+
+class Dataset(Base):
+    __tablename__ = "datasets"
+    __table_args__ = (UniqueConstraint("project_id", "name", name="uq_datasets_project_name"),)
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    project_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("projects.id", ondelete="CASCADE"))
+    name: Mapped[str] = mapped_column(String(100))
+    description: Mapped[str | None] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class DatasetItem(Base):
+    """One test case. `key` is stable across uploads so a dataset can be re-synced."""
+
+    __tablename__ = "dataset_items"
+    __table_args__ = (UniqueConstraint("dataset_id", "key", name="uq_dataset_items_key"),)
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    dataset_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("datasets.id", ondelete="CASCADE"))
+    key: Mapped[str] = mapped_column(String(100))
+    input: Mapped[Any] = mapped_column(JSONB)
+    # {"answer": reference text, "contains": [phrases], "tools": [tool names]} - all optional
+    expected: Mapped[dict] = mapped_column(JSONB, default=dict)
+
+
+class EvalRun(Base):
+    __tablename__ = "eval_runs"
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    project_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("projects.id", ondelete="CASCADE"))
+    dataset_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("datasets.id", ondelete="CASCADE"))
+    name: Mapped[str] = mapped_column(String(200))
+    agent_version: Mapped[str] = mapped_column(String(100))
+    # running (results arriving) -> scoring (worker) -> completed | failed
+    status: Mapped[str] = mapped_column(String(20), default="running")
+    summary: Mapped[dict | None] = mapped_column(JSONB)
+    error: Mapped[str | None] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
+class EvalResult(Base):
+    __tablename__ = "eval_results"
+    __table_args__ = (UniqueConstraint("eval_run_id", "item_id", name="uq_eval_results_item"),)
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    eval_run_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("eval_runs.id", ondelete="CASCADE"))
+    item_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("dataset_items.id", ondelete="CASCADE"))
+    trace_id: Mapped[uuid.UUID | None]
+    output: Mapped[str | None] = mapped_column(Text)
+    error: Mapped[str | None] = mapped_column(Text)
+    # Filled by the worker: {scorer: {"score": 0..1 | null, "reason": str}}
+    scores: Mapped[dict | None] = mapped_column(JSONB)
+    score: Mapped[float | None]  # mean of the scorers that produced a number
+    latency_ms: Mapped[float | None]
+    cost_usd: Mapped[float | None]

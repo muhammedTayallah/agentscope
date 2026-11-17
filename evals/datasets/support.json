@@ -1,0 +1,95 @@
+{
+  "name": "support-v1",
+  "description": "Northwind Gadgets support questions: orders, policies and arithmetic.",
+  "items": [
+    {
+      "key": "order-a1002-status",
+      "input": {"question": "Where is my order A1002?"},
+      "expected": {
+        "answer": "Order A1002 (USB-C charger) has shipped and is expected to arrive on 2026-11-18.",
+        "contains": ["shipped"],
+        "tools": ["get_order"]
+      }
+    },
+    {
+      "key": "order-a1003-status",
+      "input": {"question": "Has my keyboard order A1003 shipped yet?"},
+      "expected": {
+        "answer": "Not yet: order A1003 (mechanical keyboard) is still processing.",
+        "contains": ["processing"],
+        "tools": ["get_order"]
+      }
+    },
+    {
+      "key": "order-unknown",
+      "input": {"question": "Can you check order B7777 for me?"},
+      "expected": {
+        "answer": "There is no order B7777; the customer should double-check the order id.",
+        "tools": ["get_order"]
+      }
+    },
+    {
+      "key": "refund-headphones",
+      "input": {"question": "I want to return the headphones from order A1001. How much do I get back and how fast?"},
+      "expected": {
+        "answer": "A full refund of $79 (delivered 2026-11-02, within the 30-day window), back to the original payment method within 5 business days. Return shipping is free since the order is over $50.",
+        "contains": ["79", "5 business days"],
+        "tools": ["get_order", "search_kb"]
+      }
+    },
+    {
+      "key": "return-window",
+      "input": {"question": "How many days do I have to return something?"},
+      "expected": {
+        "answer": "30 days from delivery, and items must be unused.",
+        "contains": ["30 days"],
+        "tools": ["search_kb"]
+      }
+    },
+    {
+      "key": "express-total",
+      "input": {"question": "How much is express shipping on a $40 order, and what is the total?"},
+      "expected": {
+        "answer": "Express shipping costs $12 (1-2 business days), so the total is $52.",
+        "contains": ["12", "52"],
+        "tools": ["search_kb", "calculate"]
+      }
+    },
+    {
+      "key": "standard-free-threshold",
+      "input": {"question": "My order is $65. Do I pay for standard shipping?"},
+      "expected": {
+        "answer": "No: standard shipping is free for orders over $50 (otherwise $4.99, 3-5 business days).",
+        "contains": ["free"],
+        "tools": ["search_kb"]
+      }
+    },
+    {
+      "key": "warranty-damage",
+      "input": {"question": "I dropped my headphones and they broke. Is that covered by the warranty?"},
+      "expected": {
+        "answer": "No. The 2-year warranty covers manufacturing defects only; accidental damage is not covered.",
+        "contains": ["not covered"],
+        "tools": ["search_kb"]
+      }
+    },
+    {
+      "key": "payment-methods",
+      "input": {"question": "Can I pay with PayPal?"},
+      "expected": {
+        "answer": "Yes. Visa, Mastercard and PayPal are accepted.",
+        "contains": ["PayPal"],
+        "tools": ["search_kb"]
+      }
+    },
+    {
+      "key": "discount-math",
+      "input": {"question": "The keyboard in order A1003 costs 129. What would it cost with a 15% discount?"},
+      "expected": {
+        "answer": "$109.65 (15% off $129 is $19.35).",
+        "contains": ["109.65"],
+        "tools": ["calculate"]
+      }
+    }
+  ]
+}

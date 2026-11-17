@@ -25,6 +25,26 @@ payment), get_order for anything about a specific order, and calculate for any a
 If a tool says an order doesn't exist, tell the customer and ask them to check the id. \
 Answer in two or three short sentences, with the concrete numbers and dates from the tools."""
 
+# Named prompt variants, recorded as agent_version so eval runs can compare them.
+VERSIONS = {
+    "v1": SYSTEM_PROMPT,
+    "v2-concise": SYSTEM_PROMPT.replace(
+        "Answer in two or three short sentences, "
+        "with the concrete numbers and dates from the tools.",
+        "Answer in one short sentence.",
+    ),
+}
+assert VERSIONS["v2-concise"] != SYSTEM_PROMPT
+
+
+def gemini_client() -> Any:
+    """Gemini client whose retries outlast a free-tier rate-limit window (~1 minute):
+    8 attempts, back-off 2, 4, ... 60 s. The SDK default gives up after ~15 s."""
+    from google import genai
+
+    retry = types.HttpRetryOptions(attempts=8, initial_delay=2.0)
+    return genai.Client(http_options=types.HttpOptions(retry_options=retry))
+
 
 class StepLimitExceeded(RuntimeError):
     pass

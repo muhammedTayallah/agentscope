@@ -11,9 +11,8 @@ import sys
 from pathlib import Path
 
 from agentscope_sdk import AgentScope
-from google import genai
 
-from agentscope_evals.agent import DEFAULT_MODEL, SupportAgent
+from agentscope_evals.agent import DEFAULT_MODEL, SupportAgent, gemini_client
 
 ENV_KEYS = ("GEMINI_API_KEY", "GOOGLE_API_KEY", "AGENTSCOPE_API_KEY", "AGENTSCOPE_HOST")
 
@@ -41,7 +40,7 @@ def main() -> int:
         return 2
 
     scope = AgentScope()
-    agent = SupportAgent(genai.Client(), scope, model=args.model, version=args.version)
+    agent = SupportAgent(gemini_client(), scope, model=args.model, version=args.version)
     try:
         result = agent.run(args.question)
     except Exception as exc:  # the failed run is already traced; keep the CLI output short

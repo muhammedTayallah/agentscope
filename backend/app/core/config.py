@@ -21,6 +21,13 @@ class Settings(BaseSettings):
     def all_prices(self) -> dict[str, tuple[float, float]]:
         return {**DEFAULT_PRICES, **self.model_prices}
 
+    # LLM-as-judge for eval runs: "gemini" (default) or "anthropic". Empty model = the
+    # provider's default. Without the provider's key the judge scorer is skipped.
+    judge_provider: str = "gemini"
+    judge_model: str = ""
+    gemini_api_key: SecretStr = SecretStr("")
+    anthropic_api_key: SecretStr = SecretStr("")
+
     # Integration tests run against these when set (they wipe the data).
     test_database_url: str = ""
     test_redis_url: str = ""

@@ -7,7 +7,7 @@ import { useFetch } from "../lib/useFetch";
 export function Layout() {
   // A layout route can't see child params, so match the project id from the URL.
   const projectId = useMatch("/p/:projectId/*")?.params.projectId;
-  const section = useMatch("/p/:projectId/metrics") ? "metrics" : "runs";
+  const section = useMatch("/p/:projectId/:section/*")?.params.section ?? "runs";
   const navigate = useNavigate();
   const projects = useFetch(() => listProjects(), []);
   const health = useFetch(fetchHealth, []);
@@ -41,7 +41,7 @@ export function Layout() {
           )}
           {projectId && (
             <nav className="flex gap-1 text-sm" aria-label="Sections">
-              {(["runs", "metrics"] as const).map((s) => (
+              {(["runs", "metrics", "evals"] as const).map((s) => (
                 <NavLink
                   key={s}
                   to={`/p/${projectId}/${s}`}

@@ -153,3 +153,11 @@ def test_model_errors_mark_trace_failed(traced):
     (llm,) = rec.items("spans")
     assert llm["status"] == "error" and "503" in llm["error"]
     assert rec.items("traces")[0]["status"] == "error"
+
+
+def test_gemini_client_retries_long_enough_for_rate_limits(monkeypatch):
+    from agentscope_evals.agent import gemini_client
+
+    monkeypatch.setenv("GEMINI_API_KEY", "test-key")
+    retry = gemini_client()._api_client._http_options.retry_options
+    assert (retry.attempts, retry.initial_delay) == (8, 2.0)

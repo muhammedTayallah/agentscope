@@ -84,3 +84,27 @@
   | gemini-3.5-flash-lite | 9 s | 1,017 / 76 | $0.00050 |
 
   Flash-Lite thinks far less (fewer output tokens) and made one redundant `search_kb` call, but it was about 11× faster and 4.5× cheaper with no loss of correctness on these questions. This is a 4-question sample, not an eval; Phase 6 is where the versions get compared properly.
+
+## 2026-11-17: Phase 6 eval system
+
+- **Where the agent runs:** agents are user code, so the platform doesn't run them (the same model as Langfuse experiments). The evals CLI (`python -m agentscope_evals.experiment`):
+  1. upserts the dataset (`PUT /v1/datasets/{name}`),
+  2. opens an eval run (`POST /v1/eval-runs`),
+  3. answers every item with the agent locally, each answer traced as usual,
+  4. posts each output, or the agent's error, with its trace id (`POST …/results`),
+  5. completes the run (`POST …/complete`), which **enqueues `score_eval_run` on the ARQ worker**,
+  6. and polls until the worker has scored it.
+  These endpoints use the project API key; the dashboard reads with the admin token.
+- **Data:** `datasets` (unique name per project); `dataset_items` with a stable `key`, upserted by key and never deleted, so old results keep their item, plus `input` and `expected = {answer, contains, tools}`; `eval_runs` (`agent_version`, status running → scoring → completed or failed, `summary`); and `eval_results` (one per item per run: output or error, trace id, per-scorer `scores`, mean `score`, latency, cost). Re-posting an item replaces its result; results after completion get 409; items, runs and datasets of another project get 404.
+- **Scorers** (run by the worker, each 0..1 with a reason):
+  - `contains`: the share of expected phrases present, case-insensitive.
+  - `tools`: the share of expected tools called, taken from the item's trace spans.
+  - `judge`: the LLM-as-judge against the reference answer, a 0/0.5/1 rubric with structured JSON output.
+  - The item score is the mean of the scorers that produced a number, and an item **passes** at ≥ 0.8. An item where the agent failed scores 0 on each expected scorer. A judge failure, or no judge key, gives `score: null` with the reason and never fails the run.
+  - Latency and cost per item come from its trace, using `MODEL_PRICES`.
+- **Judge:** Gemini by default (CLAUDE.md); `JUDGE_PROVIDER=anthropic` switches to Claude, using `output_config.format` json_schema structured output and checking for refusals. The code default model is `gemini-3.8-flash` per CLAUDE.md; `.env` sets `JUDGE_MODEL=gemini-3.5-flash-lite`, because 3.8 kept returning 503 "high demand".
+- **Free-tier rate limit:** the Gemini key is on the free tier (15 requests/min per model). The first live run hit 429s on 2 agent items and on every judge call, and the system recorded them correctly as agent failures and "judge failed". **Fix:** the agent's and the judge's Gemini clients retry for about 3 minutes (8 attempts, back-off from 2 s); the SDK's default gave up after about 15 s, before the roughly 36 s quota reset. Re-runs then completed with 0 errors in about 2 minutes each.
+- **Agent versions:** `VERSIONS` in `evals/agent.py`: `v1` (2-3 sentences with the numbers and dates) and `v2-concise` (one short sentence), both on Flash-Lite. The dataset `evals/datasets/support.json` has 10 items (orders, unknown order, refund, policies, arithmetic).
+- **Result (2026-11-17):** both versions scored 98% with a 100% pass rate (contains 100%, tools 100%, judge 95%), and no item changed. In both, the judge flagged the refund answer for not mentioning free return shipping. v2-concise was cheaper ($0.0033 vs $0.0038 for 10 items). Conclusion: on this dataset the shorter prompt costs no quality; a harder dataset would be needed to separate the versions.
+- **Dashboard:** an Evals tab with three views. The runs list shows score, pass rate, per-scorer averages, latency and cost, and you pick two runs of the same dataset to compare. The run detail shows each item's answer against the expected answer, its scores with reasons, and a link to its trace. The compare view shows summary deltas (B − A), a grouped bar of scorer averages (blue/orange, a validated pair) and the items ordered by biggest change, regressions first. Scores always show a word (pass/partial/fail) next to the colored dot.
+- **Verification:** 15 backend eval tests (full flow against Postgres with a fake judge and queue, failure modes, ownership and state checks, judge clients with fakes), 22 agent and experiment tests, 17 frontend unit tests (`compareRows` ordering and formatting), and `frontend/e2e/evals.mjs` (Playwright: list, run detail, compare) run against the two live eval runs.
